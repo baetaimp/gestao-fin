@@ -138,6 +138,8 @@ tr:hover td{background:#FAFAF8}
 .tag-emp2{background:var(--green-bg);color:var(--green)}
 .btn-sm{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;cursor:pointer;color:var(--text2);font-family:'DM Sans',sans-serif;white-space:nowrap}
 .btn-sm:hover{background:var(--border)}
+.btn-del{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid transparent;background:transparent;cursor:pointer;color:var(--text3);font-family:'DM Sans',sans-serif;white-space:nowrap;margin-left:2px}
+.btn-del:hover{background:var(--red-bg);color:var(--red);border-color:#F09595}
 .empty-state{text-align:center;padding:2.5rem;color:var(--text3);font-size:13px}
 
 /* banco */
@@ -165,6 +167,11 @@ tr:hover td{background:#FAFAF8}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 
 /* tab */
+
+.cor-opt{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all 0.12s}
+.cor-opt:hover{transform:scale(1.15)}
+.cor-opt.active-cor{border-color:var(--text);transform:scale(1.15)}
+
 .tab-content{display:none}
 .tab-content.active{display:block}
 
@@ -305,6 +312,50 @@ tr:hover td{background:#FAFAF8}
   </div>
 </div>
 
+
+<!-- banco modal -->
+<div class="modal-overlay" id="banco-modal-overlay">
+  <div class="modal">
+    <h3 id="banco-modal-title">Nova conta bancária</h3>
+    <div class="form-group">
+      <label>Empresa</label>
+      <select id="b-emp">
+        <option value="emp1">Empresa 1</option>
+        <option value="emp2">Empresa 2</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nome do banco</label><input id="b-nome" placeholder="Ex: Nubank"/></div>
+      <div class="form-group"><label>Sigla (2-3 letras)</label><input id="b-letra" placeholder="Ex: NU" maxlength="3"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Agência</label><input id="b-agencia" placeholder="Ex: 0001-5"/></div>
+      <div class="form-group"><label>Conta</label><input id="b-conta" placeholder="Ex: 12345-6"/></div>
+    </div>
+    <div class="form-group">
+      <label>Saldo atual (R$)</label>
+      <input id="b-saldo" type="number" placeholder="0,00" min="0" step="0.01"/>
+    </div>
+    <div class="form-group">
+      <label>Cor do banco</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="b-cores">
+        <div class="cor-opt active-cor" data-cor="#185FA5" style="background:#185FA5"></div>
+        <div class="cor-opt" data-cor="#1D9E75" style="background:#1D9E75"></div>
+        <div class="cor-opt" data-cor="#D85A30" style="background:#D85A30"></div>
+        <div class="cor-opt" data-cor="#7F77DD" style="background:#7F77DD"></div>
+        <div class="cor-opt" data-cor="#BA7517" style="background:#BA7517"></div>
+        <div class="cor-opt" data-cor="#D4537E" style="background:#D4537E"></div>
+        <div class="cor-opt" data-cor="#888780" style="background:#888780"></div>
+        <div class="cor-opt" data-cor="#378ADD" style="background:#378ADD"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary2" onclick="closeBancoModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveBanco()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -409,6 +460,13 @@ function setSyncStatus(status, label){
   const dot = document.getElementById('sync-dot');
   dot.className = 'sync-dot ' + status;
   document.getElementById('sync-label').textContent = label;
+}
+
+function deleteItem(type, idx){
+  if(!confirm('Confirma a exclusão deste item?')) return;
+  if(type==='pagar') state.pagar.splice(idx,1);
+  else state.receber.splice(idx,1);
+  pushState();
 }
 
 function pushState(){
@@ -546,12 +604,12 @@ function renderPagar(){
   const rows=list.length===0?`<tr><td colspan="${ec?7:6}" class="empty-state">Nenhuma conta no período</td></tr>`:
     list.map(i=>{
       const ri=state.pagar.indexOf(i);
-      return `<tr>${ec?`<td>${empTag(i.emp)}</td>`:''}<td style="white-space:normal;min-width:110px">${i.desc}</td><td>${i.cat}</td><td>${parseDate(i.data).toLocaleDateString('pt-BR')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${fmt(i.valor)}</td><td><span class="status ${i.status}">${i.status.charAt(0).toUpperCase()+i.status.slice(1)}</span></td><td><button class="btn-sm" onclick="toggleStatus('pagar',${ri})">${i.status=='pago'?'Reabrir':'Marcar pago'}</button></td></tr>`;
+      return `<tr>${ec?`<td>${empTag(i.emp)}</td>`:''}<td style="white-space:normal;min-width:110px">${i.desc}</td><td>${i.cat}</td><td>${parseDate(i.data).toLocaleDateString('pt-BR')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${fmt(i.valor)}</td><td><span class="status ${i.status}">${i.status.charAt(0).toUpperCase()+i.status.slice(1)}</span></td><td><button class="btn-sm" onclick="toggleStatus('pagar',${ri})">${i.status=='pago'?'Reabrir':'Marcar pago'}</button><button class="btn-del" onclick="deleteItem('pagar',${ri})" title="Excluir">✕</button></td></tr>`;
     }).join('');
   document.getElementById('tab-pagar').innerHTML=`
     <div class="section">
       <div class="section-header"><span class="section-title">Contas a pagar</span><button class="btn-add" onclick="openModal('pagar')">+ Nova conta</button></div>
-      <div class="tbl-wrap"><table><thead><tr>${ec?`<th style="width:85px">Empresa</th>`:''}<th>Descrição</th><th style="width:85px">Categoria</th><th style="width:95px">Vencimento</th><th style="width:110px">Valor</th><th style="width:85px">Status</th><th style="width:105px"></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="tbl-wrap"><table><thead><tr>${ec?`<th style="width:85px">Empresa</th>`:''}<th>Descrição</th><th style="width:85px">Categoria</th><th style="width:95px">Vencimento</th><th style="width:110px">Valor</th><th style="width:85px">Status</th><th style="width:120px"></th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
 }
 
@@ -561,7 +619,7 @@ function renderReceber(){
   const rows=list.length===0?`<tr><td colspan="${ec?7:6}" class="empty-state">Nenhuma cobrança no período</td></tr>`:
     list.map(i=>{
       const ri=state.receber.indexOf(i);
-      return `<tr>${ec?`<td>${empTag(i.emp)}</td>`:''}<td style="white-space:normal;min-width:110px">${i.desc}</td><td>${i.cat}</td><td>${parseDate(i.data).toLocaleDateString('pt-BR')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${fmt(i.valor)}</td><td><span class="status ${i.status}">${i.status=='recebido'?'Recebido':'Aguardando'}</span></td><td><button class="btn-sm" onclick="toggleStatus('receber',${ri})">${i.status=='recebido'?'Reabrir':'Confirmar'}</button></td></tr>`;
+      return `<tr>${ec?`<td>${empTag(i.emp)}</td>`:''}<td style="white-space:normal;min-width:110px">${i.desc}</td><td>${i.cat}</td><td>${parseDate(i.data).toLocaleDateString('pt-BR')}</td><td style="font-family:'DM Mono',monospace;font-size:12px">${fmt(i.valor)}</td><td><span class="status ${i.status}">${i.status=='recebido'?'Recebido':'Aguardando'}</span></td><td><button class="btn-sm" onclick="toggleStatus('receber',${ri})">${i.status=='recebido'?'Reabrir':'Confirmar'}</button><button class="btn-del" onclick="deleteItem('receber',${ri})" title="Excluir">✕</button></td></tr>`;
     }).join('');
   document.getElementById('tab-receber').innerHTML=`
     <div class="section">
@@ -576,7 +634,7 @@ function renderBanco(){
   if(!list.length){document.getElementById('tab-banco').innerHTML=`<div class="section"><div class="empty-state">Nenhuma conta bancária</div></div>`;return;}
   document.getElementById('tab-banco').innerHTML=`
     <div class="section">
-      <div class="section-header"><span class="section-title">Contas bancárias</span></div>
+      <div class="section-header"><span class="section-title">Contas bancárias</span><button class="btn-add" onclick="openBancoModal()">+ Nova conta</button></div>
       ${list.map(b=>{
         const pct=total>0?Math.round((b.saldo/total)*100):0;
         return `<div class="banco-card">
@@ -588,10 +646,13 @@ function renderBanco(){
               <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${b.cor}"></div></div>
             </div>
           </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:12px">
-            <div style="font-size:11px;color:var(--text3)">Saldo disponível</div>
-            <div style="font-size:16px;font-weight:500;color:${b.cor};font-family:'DM Mono',monospace">${fmt(b.saldo)}</div>
-            <div style="font-size:11px;color:var(--text3)">${pct}% do total</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:12px">
+            <div style="text-align:right">
+              <div style="font-size:11px;color:var(--text3)">Saldo disponível</div>
+              <div style="font-size:16px;font-weight:500;color:${b.cor};font-family:'DM Mono',monospace">${fmt(b.saldo)}</div>
+              <div style="font-size:11px;color:var(--text3)">${pct}% do total</div>
+            </div>
+            <button class="btn-del" onclick="deleteBanco(${state.bancos.indexOf(b)})" title="Excluir conta">✕</button>
           </div>
         </div>`;
       }).join('')}
@@ -634,6 +695,52 @@ function saveItem(){
   closeModal();
 }
 document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+
+// ── banco modal ──
+let selectedBancoCor = '#185FA5';
+
+function openBancoModal(){
+  if(currentEmp!=='all') document.getElementById('b-emp').value=currentEmp;
+  selectedBancoCor='#185FA5';
+  document.querySelectorAll('.cor-opt').forEach(el=>{
+    el.classList.toggle('active-cor', el.dataset.cor===selectedBancoCor);
+  });
+  document.getElementById('banco-modal-overlay').classList.add('open');
+}
+
+function closeBancoModal(){
+  document.getElementById('banco-modal-overlay').classList.remove('open');
+  ['b-nome','b-letra','b-agencia','b-conta','b-saldo'].forEach(id=>document.getElementById(id).value='');
+}
+
+document.addEventListener('click', function(e){
+  if(e.target.classList.contains('cor-opt')){
+    selectedBancoCor = e.target.dataset.cor;
+    document.querySelectorAll('.cor-opt').forEach(el=>el.classList.remove('active-cor'));
+    e.target.classList.add('active-cor');
+  }
+  if(e.target===document.getElementById('banco-modal-overlay')) closeBancoModal();
+});
+
+function saveBanco(){
+  const emp = document.getElementById('b-emp').value;
+  const nome = document.getElementById('b-nome').value.trim();
+  const letra = document.getElementById('b-letra').value.trim().toUpperCase() || nome.slice(0,2).toUpperCase();
+  const agencia = document.getElementById('b-agencia').value.trim() || '0001-0';
+  const conta = document.getElementById('b-conta').value.trim() || '00000-0';
+  const saldo = parseFloat(document.getElementById('b-saldo').value) || 0;
+  if(!nome){alert('Informe o nome do banco.');return;}
+  state.bancos.push({emp, nome, agencia, conta, saldo, cor:selectedBancoCor, letra});
+  pushState();
+  closeBancoModal();
+}
+
+function deleteBanco(idx){
+  if(!confirm('Confirma a exclusão desta conta bancária?')) return;
+  state.bancos.splice(idx,1);
+  pushState();
+}
 
 // ── init ──
 const savedUrl = localStorage.getItem(FB_URL_KEY);
