@@ -413,13 +413,9 @@ function connectFirebase(){
 
 function initFirebase(url){
   try{
-    // Reuse existing app if same URL to avoid duplicate app error
-    let app;
-    try {
-      app = firebase.app('gestao-fin');
-    } catch(e) {
-      app = firebase.initializeApp({ databaseURL: url }, 'gestao-fin');
-    }
+    // Always delete old app instance to avoid stale URL bug
+    try { firebase.app('gestao-fin').delete(); } catch(e) {}
+    const app = firebase.initializeApp({ databaseURL: url }, 'gestao-fin');
     fbDatabase = firebase.database(app);
     fbRef = fbDatabase.ref('gestao');
 
@@ -435,14 +431,18 @@ function initFirebase(url){
     fbRef.once('value').then(snap => {
       clearTimeout(timeout);
       const val = snap.val();
-      if(val && val.pagar){
+      if(val && val.pagar && val.receber && val.bancos){
         state = val;
       } else {
+        // Ensure all arrays exist
+        state.pagar = state.pagar || [];
+        state.receber = state.receber || [];
+        state.bancos = state.bancos || [];
         fbRef.set(state);
       }
       fbRef.on('value', snap2 => {
         const v2 = snap2.val();
-        if(v2 && v2.pagar) { state = v2; renderAll(); }
+        if(v2 && v2.pagar && v2.receber && v2.bancos) { state = v2; renderAll(); }
       });
       setSyncStatus('ok','Sincronizado');
       showApp();
@@ -681,7 +681,10 @@ function renderBanco(){
     </div>`;
 }
 
-function renderAll(){ renderPanorama(); renderMetrics(); renderPagar(); renderReceber(); renderBanco(); }
+function renderAll(){
+  if(!state || !state.pagar || !state.receber || !state.bancos) return;
+  renderPanorama(); renderMetrics(); renderPagar(); renderReceber(); renderBanco();
+}
 
 function toggleStatus(type,idx){
   if(type==='pagar') state.pagar[idx].status=state.pagar[idx].status==='pago'?'pendente':'pago';
