@@ -187,6 +187,8 @@ tr:hover td{background:#FAFAF8}
   .wd-date{font-size:11px}
 }
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -357,9 +359,6 @@ tr:hover td{background:#FAFAF8}
 </div>
 
 <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
 const fmt = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const empresas = {
@@ -414,20 +413,33 @@ function connectFirebase(){
 
 function initFirebase(url){
   try{
-    const app = firebase.initializeApp({ databaseURL: url }, 'gestao-'+Date.now());
+    // Reuse existing app if same URL to avoid duplicate app error
+    let app;
+    try {
+      app = firebase.app('gestao-fin');
+    } catch(e) {
+      app = firebase.initializeApp({ databaseURL: url }, 'gestao-fin');
+    }
     fbDatabase = firebase.database(app);
     fbRef = fbDatabase.ref('gestao');
 
     setSyncStatus('syncing','Conectando...');
 
+    // Test connection with timeout
+    const timeout = setTimeout(() => {
+      setSyncStatus('err','Erro de conexão');
+      document.getElementById('setup-error').textContent = 'Tempo esgotado. Verifique a URL e as regras do banco (devem ser ".read": true, ".write": true).';
+      document.getElementById('setup-error').classList.add('show');
+    }, 8000);
+
     fbRef.once('value').then(snap => {
+      clearTimeout(timeout);
       const val = snap.val();
       if(val && val.pagar){
         state = val;
       } else {
         fbRef.set(state);
       }
-      // listen realtime
       fbRef.on('value', snap2 => {
         const v2 = snap2.val();
         if(v2 && v2.pagar) { state = v2; renderAll(); }
@@ -435,12 +447,18 @@ function initFirebase(url){
       setSyncStatus('ok','Sincronizado');
       showApp();
     }).catch(err => {
+      clearTimeout(timeout);
       setSyncStatus('err','Erro de conexão');
-      document.getElementById('setup-error').textContent = 'Não foi possível conectar. Verifique a URL e as regras do banco.';
+      const msg = err.code === 'PERMISSION_DENIED'
+        ? 'Permissão negada. Acesse Firebase → Realtime Database → Regras e defina ".read": true e ".write": true'
+        : 'Não foi possível conectar. URL: ' + url + ' | Erro: ' + err.message;
+      document.getElementById('setup-error').textContent = msg;
       document.getElementById('setup-error').classList.add('show');
     });
   } catch(e){
     setSyncStatus('err','Erro');
+    document.getElementById('setup-error').textContent = 'Erro ao inicializar: ' + e.message;
+    document.getElementById('setup-error').classList.add('show');
   }
 }
 
